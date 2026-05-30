@@ -8,7 +8,9 @@ CREATE TABLE bikeshop.bikes (
     type         VARCHAR(100) NOT NULL,
     price        NUMERIC(10, 2) NOT NULL CHECK(price > 0),
     stock        INTEGER NOT NULL CHECK(stock >= 0),
-    description  VARCHAR(1000)
+    description  VARCHAR(1000),
+
+    UNIQUE (brand, model)
 );
 
 CREATE TABLE bikeshop.orders (
