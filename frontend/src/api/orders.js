@@ -1,8 +1,8 @@
 const API = 'http://localhost:5050/api/v1';
 
-export async function getOrders(adminKey) {
+export async function getOrders(token) {
   const r = await fetch(`${API}/orders`, {
-    headers: { 'X-Admin-Key': adminKey }
+    headers: { 'Authorization': `Bearer ${token}` }
   });
   if (!r.ok) throw new Error('Ошибка загрузки заказов');
   return r.json();
@@ -18,10 +18,10 @@ export async function createOrder(data) {
   return r.json();
 }
 
-export async function updateOrderStatus(id, status, adminKey) {
+export async function updateOrderStatus(id, status, token) {
   const r = await fetch(`${API}/orders/${id}/status`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', 'X-Admin-Key': adminKey },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify({ status })
   });
   if (!r.ok) throw new Error('Ошибка обновления статуса');

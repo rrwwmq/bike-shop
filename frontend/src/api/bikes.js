@@ -6,30 +6,30 @@ export async function getBikes() {
   return r.json();
 }
 
-export async function createBike(data, adminKey) {
+export async function createBike(data, token) {
   const r = await fetch(`${API}/bikes`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Admin-Key': adminKey },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(data)
   });
   if (!r.ok) throw new Error('Ошибка создания велосипеда');
   return r.json();
 }
 
-export async function updateBike(id, data, adminKey) {
+export async function updateBike(id, data, token) {
   const r = await fetch(`${API}/bikes/${id}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', 'X-Admin-Key': adminKey },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(data)
   });
   if (!r.ok) throw new Error('Ошибка обновления велосипеда');
   return r.json();
 }
 
-export async function deleteBike(id, adminKey) {
+export async function deleteBike(id, token) {
   const r = await fetch(`${API}/bikes/${id}`, {
     method: 'DELETE',
-    headers: { 'X-Admin-Key': adminKey }
+    headers: { 'Authorization': `Bearer ${token}` }
   });
   if (!r.ok) throw new Error('Ошибка удаления велосипеда');
 }

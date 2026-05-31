@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { getBikes, createBike, updateBike, deleteBike } from '../api/bikes';
 import { getOrders, updateOrderStatus } from '../api/orders';
+import { login } from '../api/auth';
 
 export default function AdminPage({ showToast }) {
-  const [adminKey, setAdminKey] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [token, setToken] = useState('');
   const [authed, setAuthed] = useState(false);
   const [tab, setTab] = useState('orders');
   const [orders, setOrders] = useState([]);
@@ -15,14 +18,18 @@ export default function AdminPage({ showToast }) {
   const formatPrice = p => new Intl.NumberFormat('ru-RU').format(Math.round(p)) + ' ₽';
   const formatDate = s => new Date(s).toLocaleDateString('ru-RU');
 
-  async function login() {
-    if (!adminKey) { showToast('Введите ключ', 'error'); return; }
+  async function handleLogin() {
+    if (!email || !password) { showToast('Введите email и пароль', 'error'); return; }
     try {
-      const data = await getOrders(adminKey);
-      setOrders(Array.isArray(data) ? data : []);
+      const data = await login(email, password);
+      setToken(data.token);
+      const orders = await getOrders(data.token);
+      setOrders(Array.isArray(orders) ? orders : []);
       setAuthed(true);
       loadBikes();
-    } catch { showToast('Неверный ключ', 'error'); }
+    } catch(e) {
+      showToast(e.message || 'Неверные данные', 'error');
+    }
   }
 
   async function loadBikes() {
@@ -31,13 +38,13 @@ export default function AdminPage({ showToast }) {
   }
 
   async function loadOrders() {
-    const data = await getOrders(adminKey);
+    const data = await getOrders(token);
     setOrders(Array.isArray(data) ? data : []);
   }
 
   async function handleStatusChange(id, status) {
     try {
-      await updateOrderStatus(id, status, adminKey);
+      await updateOrderStatus(id, status, token);
       showToast('Статус обновлён', 'success');
       loadOrders();
     } catch { showToast('Ошибка', 'error'); }
@@ -46,7 +53,7 @@ export default function AdminPage({ showToast }) {
   async function handleDeleteBike(id) {
     if (!confirm('Удалить велосипед?')) return;
     try {
-      await deleteBike(id, adminKey);
+      await deleteBike(id, token);
       showToast('Удалено', 'success');
       loadBikes();
     } catch { showToast('Ошибка удаления', 'error'); }
@@ -56,8 +63,8 @@ export default function AdminPage({ showToast }) {
     const data = { brand: form.brand, model: form.model, type: form.type, price: parseFloat(form.price), stock: parseInt(form.stock), description: form.description };
     if (!data.brand || !data.model || !data.type || !data.price) { showToast('Заполните обязательные поля', 'error'); return; }
     try {
-      if (editingBike) await updateBike(editingBike.id, data, adminKey);
-      else await createBike(data, adminKey);
+      if (editingBike) await updateBike(editingBike.id, data, token);
+      else await createBike(data, token);
       showToast(editingBike ? 'Обновлено' : 'Добавлено', 'success');
       setModal(false);
       loadBikes();
@@ -88,14 +95,22 @@ export default function AdminPage({ showToast }) {
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '1.5rem', maxWidth: '400px' }}>
           <h3 style={{ fontFamily: 'Syne', fontSize: '16px', marginBottom: '1rem' }}>Вход для администратора</h3>
           <div style={{ marginBottom: '14px' }}>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Admin Key</label>
-            <input type="password" value={adminKey} onChange={e => setAdminKey(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && login()}
-              placeholder="Введите ключ"
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleLogin()}
+              placeholder="admin@bikeshop.com"
               style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontFamily: 'Manrope', fontSize: '14px', background: 'var(--bg)', outline: 'none' }}
             />
           </div>
-          <button onClick={login} style={{ background: 'var(--text)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 'var(--radius-sm)', fontFamily: 'Manrope', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>Войти</button>
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Пароль</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleLogin()}
+              placeholder="••••••"
+              style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontFamily: 'Manrope', fontSize: '14px', background: 'var(--bg)', outline: 'none' }}
+            />
+          </div>
+          <button onClick={handleLogin} style={{ background: 'var(--text)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 'var(--radius-sm)', fontFamily: 'Manrope', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>Войти</button>
         </div>
       ) : (
         <>
