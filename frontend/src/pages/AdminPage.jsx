@@ -1,16 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getBikes, createBike, updateBike, deleteBike } from '../api/bikes';
 import { getOrders, updateOrderStatus } from '../api/orders';
 import { login } from '../api/auth';
+import { getStatistics } from '../api/statistics';
 
 export default function AdminPage({ showToast }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [token, setToken] = useState('');
   const [authed, setAuthed] = useState(false);
-  const [tab, setTab] = useState('orders');
+  const [tab, setTab] = useState('statistics');
   const [orders, setOrders] = useState([]);
   const [bikes, setBikes] = useState([]);
+  const [stats, setStats] = useState(null);
   const [modal, setModal] = useState(false);
   const [editingBike, setEditingBike] = useState(null);
   const [form, setForm] = useState({ brand: '', model: '', type: '', price: '', stock: '', description: '' });
@@ -23,8 +25,12 @@ export default function AdminPage({ showToast }) {
     try {
       const data = await login(email, password);
       setToken(data.token);
-      const orders = await getOrders(data.token);
-      setOrders(Array.isArray(orders) ? orders : []);
+      const [ordersData, statsData] = await Promise.all([
+        getOrders(data.token),
+        getStatistics()
+      ]);
+      setOrders(Array.isArray(ordersData) ? ordersData : []);
+      setStats(statsData);
       setAuthed(true);
       loadBikes();
     } catch(e) {
@@ -42,11 +48,17 @@ export default function AdminPage({ showToast }) {
     setOrders(Array.isArray(data) ? data : []);
   }
 
+  async function loadStats() {
+    const data = await getStatistics();
+    setStats(data);
+  }
+
   async function handleStatusChange(id, status) {
     try {
       await updateOrderStatus(id, status, token);
       showToast('Статус обновлён', 'success');
       loadOrders();
+      loadStats();
     } catch { showToast('Ошибка', 'error'); }
   }
 
@@ -56,6 +68,7 @@ export default function AdminPage({ showToast }) {
       await deleteBike(id, token);
       showToast('Удалено', 'success');
       loadBikes();
+      loadStats();
     } catch { showToast('Ошибка удаления', 'error'); }
   }
 
@@ -68,6 +81,7 @@ export default function AdminPage({ showToast }) {
       showToast(editingBike ? 'Обновлено' : 'Добавлено', 'success');
       setModal(false);
       loadBikes();
+      loadStats();
     } catch { showToast('Ошибка сохранения', 'error'); }
   }
 
@@ -84,6 +98,13 @@ export default function AdminPage({ showToast }) {
         onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
         style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontFamily: 'Manrope', fontSize: '14px', background: 'var(--bg)', outline: 'none' }}
       />
+    </div>
+  );
+
+  const statCard = (label, value) => (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '1.5rem' }}>
+      <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>{label}</div>
+      <div style={{ fontFamily: 'Syne', fontSize: '28px', fontWeight: 600 }}>{value}</div>
     </div>
   );
 
@@ -115,12 +136,21 @@ export default function AdminPage({ showToast }) {
       ) : (
         <>
           <div style={{ display: 'flex', gap: '4px', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)' }}>
-            {['orders', 'bikes'].map(t => (
+            {['statistics', 'orders', 'bikes'].map(t => (
               <button key={t} onClick={() => setTab(t)} style={{ background: 'none', border: 'none', padding: '9px 18px', fontFamily: 'Manrope', fontSize: '14px', color: tab === t ? 'var(--text)' : 'var(--muted)', borderBottom: tab === t ? '2px solid var(--text)' : '2px solid transparent', marginBottom: '-1px', cursor: 'pointer', fontWeight: tab === t ? 500 : 400 }}>
-                {t === 'orders' ? 'Заказы' : 'Каталог'}
+                {t === 'statistics' ? 'Статистика' : t === 'orders' ? 'Заказы' : 'Каталог'}
               </button>
             ))}
           </div>
+
+          {tab === 'statistics' && stats && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
+              {statCard('Всего заказов', stats.total_orders)}
+              {statCard('Выручка', formatPrice(stats.total_revenue))}
+              {statCard('Велосипедов в каталоге', stats.total_bikes)}
+              {statCard('Популярный велосипед', stats.most_popular_bike)}
+            </div>
+          )}
 
           {tab === 'orders' && (
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
