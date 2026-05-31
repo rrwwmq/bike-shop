@@ -11,7 +11,7 @@ import (
 
 type OrdersHTTPHandler struct {
 	ordersService OrdersService
-	adminKey      string
+	jwtSecret     string
 }
 
 type OrdersService interface {
@@ -21,10 +21,10 @@ type OrdersService interface {
 	UpdateOrderStatus(ctx context.Context, id int, status string) (domain.Order, error)
 }
 
-func NewOrdersHTTPHandler(ordersService OrdersService, adminKey string) *OrdersHTTPHandler {
+func NewOrdersHTTPHandler(ordersService OrdersService, jwtSecret string) *OrdersHTTPHandler {
 	return &OrdersHTTPHandler{
 		ordersService: ordersService,
-		adminKey:      adminKey,
+		jwtSecret:     jwtSecret,
 	}
 }
 
@@ -35,24 +35,22 @@ func (h *OrdersHTTPHandler) Routes() []core_http_server.Route {
 			Path:    "/orders",
 			Handler: h.CreateOrder,
 		},
-
 		{
 			Method:  http.MethodGet,
 			Path:    "/orders/{id}",
 			Handler: h.GetOrder,
 		},
-
 		{
-			Method:  http.MethodGet,
-			Path:    "/orders",
-			Handler: h.GetOrders,
+			Method:     http.MethodGet,
+			Path:       "/orders",
+			Handler:    h.GetOrders,
+			Middleware: []core_http_middleware.Middleware{core_http_middleware.JWT(h.jwtSecret)},
 		},
-
 		{
 			Method:     http.MethodPatch,
 			Path:       "/orders/{id}/status",
 			Handler:    h.UpdateOrderStatus,
-			Middleware: []core_http_middleware.Middleware{core_http_middleware.AdminKey(h.adminKey)},
+			Middleware: []core_http_middleware.Middleware{core_http_middleware.JWT(h.jwtSecret)},
 		},
 	}
 }

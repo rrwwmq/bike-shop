@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"runtime/debug"
+	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	core_errors "github.com/rrwwmq/bike-shop/internal/core/errors"
+	"github.com/rrwwmq/bike-shop/internal/core/jwtutil"
 	core_logger "github.com/rrwwmq/bike-shop/internal/core/logger"
 	core_http_response "github.com/rrwwmq/bike-shop/internal/core/transport/http/response"
 	"go.uber.org/zap"
@@ -15,7 +19,6 @@ import (
 
 const (
 	requestIDHeader = "X-Request-ID"
-	adminKeyHeader  = "X-Admin-Key"
 )
 
 func RequestID() Middleware {
@@ -100,22 +103,15 @@ func Panic() Middleware {
 	}
 }
 
-func AdminKey(adminKey string) Middleware {
+func CORS() Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
-			log := core_logger.FromContext(ctx)
-			responseHandler := core_http_response.NewHTTPResponseHandler(log, w)
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Request-ID, X-Admin-Key, Authorization")
 
-			key := r.Header.Get(adminKeyHeader)
-			if key != adminKey {
-				log.Warn("unauthorized admin access attempt",
-					zap.String("ip", r.RemoteAddr),
-				)
-				responseHandler.ErrorResponse(
-					fmt.Errorf("forbidden"),
-					"forbidden",
-				)
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
 				return
 			}
 
@@ -124,15 +120,39 @@ func AdminKey(adminKey string) Middleware {
 	}
 }
 
-func CORS() Middleware {
+func JWT(jwtSecret string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Request-ID, X-Admin-Key")
+			ctx := r.Context()
+			log := core_logger.FromContext(ctx)
+			responseHandler := core_http_response.NewHTTPResponseHandler(log, w)
 
-			if r.Method == http.MethodOptions {
-				w.WriteHeader(http.StatusNoContent)
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				responseHandler.ErrorResponse(fmt.Errorf("missing authorization header: %w", core_errors.ErrInvalidArgument), "unauthorized")
+				return
+			}
+
+			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+			if tokenStr == authHeader {
+				responseHandler.ErrorResponse(fmt.Errorf("invalid authorization header format: %w", core_errors.ErrInvalidArgument), "unauthorized")
+				return
+			}
+
+			token, err := jwt.ParseWithClaims(tokenStr, &jwtutil.TokenClaims{}, func(t *jwt.Token) (interface{}, error) {
+				if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, fmt.Errorf("unexpected signing method")
+				}
+				return []byte(jwtSecret), nil
+			})
+			if err != nil || !token.Valid {
+				responseHandler.ErrorResponse(fmt.Errorf("invalid token: %w", core_errors.ErrInvalidArgument), "unauthorized")
+				return
+			}
+
+			claims := token.Claims.(*jwtutil.TokenClaims)
+			if claims.Role != "admin" {
+				responseHandler.ErrorResponse(fmt.Errorf("forbidden: %w", core_errors.ErrInvalidArgument), "forbidden")
 				return
 			}
 

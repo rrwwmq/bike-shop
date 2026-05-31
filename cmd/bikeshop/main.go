@@ -11,6 +11,9 @@ import (
 	core_repository_postgres_pool "github.com/rrwwmq/bike-shop/internal/core/repository/postgres/pool"
 	core_http_middleware "github.com/rrwwmq/bike-shop/internal/core/transport/http/middleware"
 	core_http_server "github.com/rrwwmq/bike-shop/internal/core/transport/http/server"
+	auth_postgres_repository "github.com/rrwwmq/bike-shop/internal/features/auth/repository/postgres"
+	auth_service "github.com/rrwwmq/bike-shop/internal/features/auth/service"
+	auth_transport_http "github.com/rrwwmq/bike-shop/internal/features/auth/transport/http"
 	bikes_postgres_repository "github.com/rrwwmq/bike-shop/internal/features/bikes/repository/postgres"
 	bikes_service "github.com/rrwwmq/bike-shop/internal/features/bikes/service"
 	bikes_transport_http "github.com/rrwwmq/bike-shop/internal/features/bikes/transport/http"
@@ -42,19 +45,26 @@ func main() {
 	}
 	defer pool.Close()
 
+	httpConfig := core_http_server.NewConfigMust()
+
+	logger.Debug("initializing feature", zap.String("feature", "auth"))
+	authRepository := auth_postgres_repository.NewAuthRepository(pool)
+	authService := auth_service.NewAuthService(authRepository, httpConfig.JWTSecret)
+	authTransportHTTP := auth_transport_http.NewAuthHTTPHandler(authService, httpConfig.AdminSecret)
+
 	logger.Debug("initializing feature", zap.String("feature", "bikes"))
 	bikesRepository := bikes_postgres_repository.NewBikesRepository(pool)
 	bikesService := bikes_service.NewBikesService(bikesRepository)
-	bikesTransportHTTP := bikes_transport_http.NewBikesHTTPHandler(bikesService)
+	bikesTransportHTTP := bikes_transport_http.NewBikesHTTPHandler(bikesService, httpConfig.JWTSecret)
 
 	logger.Debug("initializing feature", zap.String("feature", "orders"))
 	ordersRepository := orders_postgres_repository.NewOrdersRepository(pool)
 	ordersService := orders_service.NewOrdersService(ordersRepository)
-	ordersTransportHTTP := orders_transport_http.NewOrdersHTTPHandler(ordersService, core_http_server.NewConfigMust().AdminKey)
+	ordersTransportHTTP := orders_transport_http.NewOrdersHTTPHandler(ordersService, httpConfig.JWTSecret)
 
 	logger.Debug("initializing HTTP server")
 	httpServer := core_http_server.NewHTTPServer(
-		core_http_server.NewConfigMust(),
+		httpConfig,
 		logger,
 		core_http_middleware.CORS(),
 		core_http_middleware.RequestID(),
@@ -65,6 +75,7 @@ func main() {
 
 	apiVersionRouter := core_http_server.NewAPIVersionRouter(core_http_server.ApiVersion1)
 	routes := append(bikesTransportHTTP.Routes(), ordersTransportHTTP.Routes()...)
+	routes = append(routes, authTransportHTTP.Routes()...)
 	apiVersionRouter.RegisterRouters(routes...)
 
 	httpServer.RegisterAPIRoutes(apiVersionRouter)
