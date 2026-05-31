@@ -24,7 +24,7 @@ const changeQty = useCallback((id, delta, maxStock) => {
   const clearCart = useCallback(() => setCart({}), []);
 
   const totalCount = Object.values(cart).reduce((s, i) => s + i.qty, 0);
-  const totalPrice = Object.values(cart).reduce((s, i) => s + i.bike.Price * i.qty, 0);
+  const totalPrice = Object.values(cart).reduce((s, i) => s + i.bike.price * i.qty, 0);
   const items = Object.values(cart);
 
   return { cart, items, totalCount, totalPrice, addToCart, changeQty, removeFromCart, clearCart };
