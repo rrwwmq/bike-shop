@@ -14,6 +14,9 @@ import (
 	bikes_postgres_repository "github.com/rrwwmq/bike-shop/internal/features/bikes/repository/postgres"
 	bikes_service "github.com/rrwwmq/bike-shop/internal/features/bikes/service"
 	bikes_transport_http "github.com/rrwwmq/bike-shop/internal/features/bikes/transport/http"
+	orders_postgres_repository "github.com/rrwwmq/bike-shop/internal/features/orders/repository/postgres"
+	orders_service "github.com/rrwwmq/bike-shop/internal/features/orders/service"
+	orders_transport_http "github.com/rrwwmq/bike-shop/internal/features/orders/transport/http"
 	"go.uber.org/zap"
 )
 
@@ -44,6 +47,11 @@ func main() {
 	bikesService := bikes_service.NewBikesService(bikesRepository)
 	bikesTransportHTTP := bikes_transport_http.NewBikesHTTPHandler(bikesService)
 
+	logger.Debug("initializing feature", zap.String("feature", "orders"))
+	ordersRepository := orders_postgres_repository.NewOrdersRepository(pool)
+	ordersService := orders_service.NewOrdersService(ordersRepository)
+	ordersTransportHTTP := orders_transport_http.NewOrdersHTTPHandler(ordersService, core_http_server.NewConfigMust().AdminKey)
+
 	logger.Debug("initializing HTTP server")
 	httpServer := core_http_server.NewHTTPServer(
 		core_http_server.NewConfigMust(),
@@ -55,7 +63,9 @@ func main() {
 	)
 
 	apiVersionRouter := core_http_server.NewAPIVersionRouter(core_http_server.ApiVersion1)
-	apiVersionRouter.RegisterRouters(bikesTransportHTTP.Routes()...)
+	routes := append(bikesTransportHTTP.Routes(), ordersTransportHTTP.Routes()...)
+	apiVersionRouter.RegisterRouters(routes...)
+
 	httpServer.RegisterAPIRoutes(apiVersionRouter)
 
 	if err := httpServer.Run(ctx); err != nil {

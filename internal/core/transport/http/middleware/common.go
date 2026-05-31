@@ -2,6 +2,7 @@ package core_http_middleware
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"runtime/debug"
 	"time"
@@ -14,10 +15,10 @@ import (
 
 const (
 	requestIDHeader = "X-Request-ID"
+	adminKeyHeader  = "X-Admin-Key"
 )
 
 func RequestID() Middleware {
-
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requestID := r.Header.Get(requestIDHeader)
@@ -93,6 +94,30 @@ func Panic() Middleware {
 					)
 				}
 			}()
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func AdminKey(adminKey string) Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			log := core_logger.FromContext(ctx)
+			responseHandler := core_http_response.NewHTTPResponseHandler(log, w)
+
+			key := r.Header.Get(adminKeyHeader)
+			if key != adminKey {
+				log.Warn("unauthorized admin access attempt",
+					zap.String("ip", r.RemoteAddr),
+				)
+				responseHandler.ErrorResponse(
+					fmt.Errorf("forbidden"),
+					"forbidden",
+				)
+				return
+			}
 
 			next.ServeHTTP(w, r)
 		})
