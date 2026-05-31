@@ -3,13 +3,14 @@ package bikes_transport_http
 import "github.com/rrwwmq/bike-shop/internal/core/domain"
 
 type bikeDTOResponse struct {
-	ID          int
-	Version     int
-	Brand       string
-	Model       string
-	Type        string
-	Stock       int
-	Description string
+	ID          int     `json:"id"`
+	Version     int     `json:"version"`
+	Brand       string  `json:"brand"`
+	Model       string  `json:"model"`
+	Type        string  `json:"type"`
+	Price       float64 `json:"price"`
+	Stock       int     `json:"stock"`
+	Description string  `json:"description"`
 }
 
 func bikeDTOFromDomain(bike domain.Bike) bikeDTOResponse {
@@ -19,6 +20,7 @@ func bikeDTOFromDomain(bike domain.Bike) bikeDTOResponse {
 		Brand:       bike.Brand,
 		Model:       bike.Model,
 		Type:        bike.Type,
+		Price:       bike.Price,
 		Stock:       bike.Stock,
 		Description: bike.Description,
 	}

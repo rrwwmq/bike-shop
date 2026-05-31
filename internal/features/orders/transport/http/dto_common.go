@@ -6,13 +6,6 @@ import (
 	"github.com/rrwwmq/bike-shop/internal/core/domain"
 )
 
-type bikeOrderDTOResponse struct {
-	ID              int     `json:"id"`
-	BikeID          int     `json:"bike_id"`
-	Quantity        int     `json:"quantity"`
-	PriceAtPurchase float64 `json:"price_at_purchase"`
-}
-
 type orderDTOResponse struct {
 	ID          int                    `json:"id"`
 	FullName    string                 `json:"full_name"`
@@ -23,6 +16,13 @@ type orderDTOResponse struct {
 	CreatedAt   time.Time              `json:"created_at"`
 	CompletedAt *time.Time             `json:"completed_at"`
 	Items       []bikeOrderDTOResponse `json:"items"`
+}
+
+type bikeOrderDTOResponse struct {
+	ID              int     `json:"id"`
+	BikeID          int     `json:"bike_id"`
+	Quantity        int     `json:"quantity"`
+	PriceAtPurchase float64 `json:"price_at_purchase"`
 }
 
 func orderDTOFromDomain(order domain.Order) orderDTOResponse {
