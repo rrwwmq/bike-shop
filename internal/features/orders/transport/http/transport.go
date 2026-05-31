@@ -52,7 +52,7 @@ func (h *OrdersHTTPHandler) Routes() []core_http_server.Route {
 			Method:     http.MethodPatch,
 			Path:       "/orders/{id}/status",
 			Handler:    h.UpdateOrderStatus,
-			Middleware: []core_http_middleware.Middleware{core_http_middleware.AdminKey(adminKey)},
+			Middleware: []core_http_middleware.Middleware{core_http_middleware.AdminKey(h.adminKey)},
 		},
 	}
 }
